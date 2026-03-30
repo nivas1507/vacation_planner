@@ -1,0 +1,8 @@
+# chromadb (pulled in by crewai) needs chroma-hnswlib. On Windows, PyPI has prebuilt
+# wheels only for Python 3.7–3.11 (not 3.12/3.13). With 3.12+, pip builds from source
+# and requires Microsoft Visual C++ 14+ (Build Tools). Alternatively use Python 3.11.
+bedrock-agentcore==0.1.4
+boto3==1.40.35
+crewai[tools]==0.193.2
+streamlit==1.49.1
+aws-opentelemetry-distro>=0.10.0
