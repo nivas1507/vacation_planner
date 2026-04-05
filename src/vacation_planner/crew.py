@@ -41,6 +41,7 @@ class VacationSerperTool(SerperDevTool):
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
 '''
+# 2 ---------@CrewBase decorator- Python decorator within the Bedrock AgentCore SDK--------------------
 @CrewBase
 class VacationPlanner():
     """VacationPlanner crew"""
