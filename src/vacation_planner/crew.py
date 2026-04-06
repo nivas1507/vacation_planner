@@ -7,7 +7,7 @@ from crewai import LLM
 # ---------- #1 Agentcore imports  --------------------
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 app = BedrockAgentCoreApp()
-#Initialize SerperDev Tool
+#Initialize SerperDev Tool from Google
 serper_dev_tool=SerperDevTool(api_key="187752673dc427db3329433173f56d3328df2a6c")
 llm=LLM(model="bedrock/us.amazon.nova-pro-v1:0")
 
