@@ -47,8 +47,7 @@ jobs:
           name: docker-image
           path: image.tar
           retention-days: 1   # short-lived; only needed until approval
-
-  # ── Job 2: Push (requires human approval) ─────────────────────
+ # ── Job 2: Push (requires human approval) 
    push:
     name: Push to ECR
     runs-on: ubuntu-latest
