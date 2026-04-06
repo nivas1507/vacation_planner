@@ -1,0 +1,91 @@
+name: Build and Push to ECR
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+
+permissions:
+  contents: read
+  id-token: write   # ← Required for OIDC token generation
+
+jobs:
+# Job 1: Build
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.image-tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Capture the tag once so both jobs use the same value
+      - name: Set image metadata
+        id: meta
+        run: echo "image-tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        run: |
+          docker build -t ecr-image:${{ steps.meta.outputs.image-tag }} .
+
+      # Save the image so the push job doesn't need to rebuild
+      - name: Export image to tar
+        run: |
+          docker save ecr-image:${{ steps.meta.outputs.image-tag }} \
+            -o image.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: image.tar
+          retention-days: 1   # short-lived; only needed until approval
+  # 2nd job        
+  push:
+    name: Push to ECR
+    runs-on: ubuntu-latest
+    needs: build
+
+    # 👇 This line is what triggers the approval gate
+    environment: production
+
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker image
+        run: docker load -i image.tar
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: github-actions-ecr-push
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag and push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
+        run: |
+          docker tag ecr-image:$IMAGE_TAG \
+                     $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag ecr-image:$IMAGE_TAG \
+                     $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
