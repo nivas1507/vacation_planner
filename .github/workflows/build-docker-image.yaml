@@ -49,6 +49,7 @@ jobs:
           retention-days: 1   # short-lived; only needed until approval
 
   # ── Job 2: Push (requires human approval) ─────────────────────
+  On:manual
   push:
     name: Push to ECR
     runs-on: ubuntu-latest
