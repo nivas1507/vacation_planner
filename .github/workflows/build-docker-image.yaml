@@ -1,5 +1,4 @@
 name: Build and Push to ECR
-
 on:
   push:
     branches:
@@ -14,7 +13,7 @@ permissions:
   id-token: write   # ← Required for OIDC token generation
 
 jobs:
-  # ── Job 1: Build ──────────────────────────────────────────────
+# Job 1: Build
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
@@ -47,7 +46,7 @@ jobs:
           name: docker-image
           path: image.tar
           retention-days: 1   # short-lived; only needed until approval
- # ── Job 2: Push (requires human approval) 
+# ── Job 2: Push (requires human approval) 
    push:
     name: Push to ECR
     runs-on: ubuntu-latest
