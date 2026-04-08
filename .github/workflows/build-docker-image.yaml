@@ -16,7 +16,7 @@ env:
 
 jobs:
   # ──────────────────────────────────────────
-  # JOB 1 — Build & Save Docker Image
+  # JOB 1 — Build & Save AI Docker Image 
   # ──────────────────────────────────────────
   build:
     name: 🏗️ Build Docker Image
