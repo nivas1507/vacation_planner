@@ -1,4 +1,4 @@
-name: Build, Approve & Push to Docker Hub
+name: Build, Approve & Push to AWS ECR + Docker Hub
 
 on:
   push:
@@ -7,8 +7,12 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKERHUB_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
+  # AWS ECR
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  # Docker Hub
+  DOCKERHUB_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
 
 jobs:
   # ──────────────────────────────────────────
@@ -32,8 +36,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: false                         # Don't push yet — save as tar
-          tags: ${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          push: false                         # Save as tar, push in later jobs
+          tags: app:${{ env.IMAGE_TAG }}
           outputs: type=docker,dest=/tmp/image.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -54,18 +58,73 @@ jobs:
     needs: build
 
     environment:
-      name: production                        # Must create this Environment in
-                                              # GitHub → Settings → Environments
-                                              # and add required reviewers there
+      name: production                        # Create in GitHub → Settings →
+                                              # Environments → add required reviewers
 
     steps:
       - name: Awaiting approval
-        run: echo "Approval granted — proceeding to push image to Docker Hub."
+        run: echo "Approval granted — proceeding to push image to AWS ECR & Docker Hub."
 
   # ──────────────────────────────────────────
-  # JOB 3 — Push to Docker Hub
+  # JOB 3a — Push to AWS ECR
   # ──────────────────────────────────────────
-  push:
+  push-ecr:
+    name: 🚀 Push to AWS ECR
+    runs-on: ubuntu-latest
+    needs: approve
+
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/image.tar
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          # ── OR use OIDC (recommended — no long-lived keys) ─────────────
+          # role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsRole
+          # aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag image for ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker tag app:${{ env.IMAGE_TAG }} \
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+          docker tag app:${{ env.IMAGE_TAG }} \
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+
+      - name: Push image to AWS ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+
+      - name: Print ECR image URI
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          echo "✅ ECR image pushed successfully:"
+          echo "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+
+  # ──────────────────────────────────────────
+  # JOB 3b — Push to Docker Hub
+  # ──────────────────────────────────────────
+  push-dockerhub:
     name: 🚀 Push to Docker Hub
     runs-on: ubuntu-latest
     needs: approve
@@ -84,18 +143,14 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}     # Use an Access Token, not your password
+          password: ${{ secrets.DOCKERHUB_TOKEN }}     # Access Token, not password
 
       - name: Tag image for Docker Hub
         run: |
-          # Tag with commit SHA
-          docker tag \
-            ${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }} \
+          docker tag app:${{ env.IMAGE_TAG }} \
             ${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
-          # Also tag as 'latest'
-          docker tag \
-            ${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }} \
+          docker tag app:${{ env.IMAGE_TAG }} \
             ${{ env.DOCKERHUB_REPOSITORY }}:latest
 
       - name: Push image to Docker Hub
@@ -103,7 +158,24 @@ jobs:
           docker push ${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }}
           docker push ${{ env.DOCKERHUB_REPOSITORY }}:latest
 
-      - name: Print image URI
+      - name: Print Docker Hub image URI
         run: |
-          echo "✅ Image pushed successfully:"
+          echo "✅ Docker Hub image pushed successfully:"
           echo "docker.io/${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+
+  # ──────────────────────────────────────────
+  # JOB 4 — Summary
+  # ──────────────────────────────────────────
+  summary:
+    name: ✅ Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [push-ecr, push-dockerhub]
+
+    steps:
+      - name: Print summary
+        run: |
+          echo "=================================================="
+          echo "✅ Image successfully pushed to both registries!"
+          echo "  • AWS ECR     : ${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+          echo "  • Docker Hub  : ${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+          echo "=================================================="
