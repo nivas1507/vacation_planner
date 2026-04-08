@@ -12,31 +12,6 @@ serper_dev_tool=SerperDevTool(api_key="187752673dc427db3329433173f56d3328df2a6c"
 llm=LLM(model="bedrock/us.amazon.nova-pro-v1:0")
 
 '''
-# Load .env from project root (parent of src/) so SERPER_API_KEY is set before tools init.
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
-
-# Main call name is superDevTools.
-class SerperDevToolInput(BaseModel):
-    """Schema aligned with Serper; accepts `search_query` or `query` (some LLMs use `query`)."""
-
-    search_query: str = Field(
-        ...,
-        description=(
-            'Required. The web search string. Example: {"search_query": "top attractions in London"}'
-        ),
-        validation_alias=AliasChoices("search_query", "query"),
-    )
-
-
-class VacationSerperTool(SerperDevTool):
-    """Serper tool with clearer args for models that omit or rename parameters."""
-
-    description: str = (
-        "Search the internet via Serper. You MUST pass search_query as a non-empty string "
-        '(JSON like {"search_query": "your search here"}). Never invoke with {}.'
-    )
-    args_schema: type[BaseModel] = SerperDevToolInput
-
 # If you want to run a snippet of code before or after the crew starts,
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
