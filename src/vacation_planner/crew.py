@@ -16,7 +16,7 @@ llm=LLM(model="bedrock/us.amazon.nova-pro-v1:0")
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators add comment
 '''
-# 2 ---------@CrewBase decorator- Python decorator within the Bedrock AgentCore SDK--------------------
+# 2 ---------@CrewBase decorator- Python decorator within the Bedrock AgentCore SDK comm
 @CrewBase
 class VacationPlanner():
     """VacationPlanner crew"""
