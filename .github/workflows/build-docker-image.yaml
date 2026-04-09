@@ -59,7 +59,7 @@ jobs:
 
     environment:
       name: production                        # Create in GitHub → Settings →
-                                              # Environments → add required reviewers
+                                              # Environments → add required reviewers Nivas
 
     steps:
       - name: Awaiting approval
