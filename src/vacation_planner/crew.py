@@ -12,7 +12,7 @@ serper_dev_tool=SerperDevTool(api_key="187752673dc427db3329433173f56d3328df2a6c"
 llm=LLM(model="bedrock/us.amazon.nova-pro-v1:0")
 
 '''
-# If you want to run a snippet of code before or after the crew starts,
+# If you want to run a snippet of code before or after the crew starts, added comments.
 # you can use the @before_kickoff and @after_kickoff decorators
 # https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators add comment
 '''
