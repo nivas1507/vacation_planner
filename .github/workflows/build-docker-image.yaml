@@ -8,15 +8,13 @@ on:
 
 env:
   IMAGE_TAG: ${{ github.sha }}
-  # AWS ECR
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-  # Docker Hub
   DOCKERHUB_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY }}
 
 jobs:
   # ──────────────────────────────────────────
-  # JOB 1 — Build & Save AI Docker Image 
+  # JOB 1 — Build & Save Docker Image
   # ──────────────────────────────────────────
   build:
     name: 🏗️ Build Docker Image
@@ -29,15 +27,24 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Set up QEMU (cross-platform emulation)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/arm64
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
-          push: false                         # Save as tar, push in later jobs
+          file: Dockerfile
+          platforms: linux/arm64
+          push: false
           tags: app:${{ env.IMAGE_TAG }}
+          build-args: |
+            SERVICE_NAME=vacation_planner_agent
           outputs: type=docker,dest=/tmp/image.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -58,8 +65,8 @@ jobs:
     needs: build
 
     environment:
-      name: production                        # Create in GitHub → Settings →
-                                              # Environments → add required reviewers Nivas
+      name: production                        # GitHub → Settings → Environments
+                                              # → add required reviewers
 
     steps:
       - name: Awaiting approval
@@ -97,28 +104,19 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Tag image for ECR
+      - name: Tag & push image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           docker tag app:${{ env.IMAGE_TAG }} \
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
-
           docker tag app:${{ env.IMAGE_TAG }} \
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Push image to AWS ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
           docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Print ECR image URI
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
-          echo "✅ ECR image pushed successfully:"
+          echo "✅ ECR image pushed:"
           echo "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
 
   # ──────────────────────────────────────────
@@ -143,24 +141,19 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}     # Access Token, not password
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Tag image for Docker Hub
+      - name: Tag & push image to Docker Hub
         run: |
           docker tag app:${{ env.IMAGE_TAG }} \
             ${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }}
-
           docker tag app:${{ env.IMAGE_TAG }} \
             ${{ env.DOCKERHUB_REPOSITORY }}:latest
 
-      - name: Push image to Docker Hub
-        run: |
           docker push ${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }}
           docker push ${{ env.DOCKERHUB_REPOSITORY }}:latest
 
-      - name: Print Docker Hub image URI
-        run: |
-          echo "✅ Docker Hub image pushed successfully:"
+          echo "✅ Docker Hub image pushed:"
           echo "docker.io/${{ env.DOCKERHUB_REPOSITORY }}:${{ env.IMAGE_TAG }}"
 
   # ──────────────────────────────────────────

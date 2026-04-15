@@ -26,7 +26,7 @@ COPY src/ ./src/
 COPY pyproject.toml .
 # OpenTelemetry environment variables for AgentCore observability.  
 # Change this to unique name for your agent.
-ENV OTEL_SERVICE_NAME=vacation_planner_agent
+#ENV OTEL_SERVICE_NAME=vacation_planner_agent
 ENV OTEL_METRICS_EXPORTER=otlp
 # AWS openTelemetry Disctrubution.
 ENV OTEL_PYTHON_DISTRO=aws_distro
@@ -42,7 +42,11 @@ ENV OTEL_TRACES_SAMPLER=always_on
 ENV OTEL_RESOURCE_ATTRIBUTES=service.namespace=AgentCore,service.version=1.0
 
 # Expose port
-EXPOSE 8080
+ARG SERVICE_NAME=vacation_planner_agent
+ARG PORT=8080
+ENV OTEL_SERVICE_NAME=${SERVICE_NAME}
+EXPOSE ${PORT}
+
 
 # Run with OpenTelemetry auto-instrumentation. This will automatically instrument supported libraries and send telemetry to the configured OTLP endpoint.
 CMD ["opentelemetry-instrument", "python", "src/vacation_planner/crew.py"]
