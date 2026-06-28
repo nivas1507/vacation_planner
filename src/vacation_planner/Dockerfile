@@ -15,8 +15,8 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system --no-cache -r requirements.txt
 
-# Install AWS OpenTelemetry and boto3 (needed for observability + AWS SDK access)
-RUN pip install --no-cache-dir "aws-opentelemetry-distro>=0.10.1" boto3    
+# Install boto3 (needed for AWS SDK access; aws-opentelemetry-distro is pinned in requirements.txt)
+RUN pip install --no-cache-dir boto3
 
 # Copy app source code and pyproject.toml
 COPY src/ ./src/

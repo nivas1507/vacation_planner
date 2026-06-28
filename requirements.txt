@@ -5,4 +5,6 @@ bedrock-agentcore==0.1.4
 boto3==1.40.35
 crewai[tools]==0.193.2
 streamlit==1.49.1
-aws-opentelemetry-distro>=0.10.0
+# Pinned <0.17.0: its crewai auto-instrumentation calls crewai.llms.base_llm.get_current_call_id,
+# which only exists from crewai>=1.10.0 and is absent in the 0.193.2 pin above.
+aws-opentelemetry-distro==0.16.0
